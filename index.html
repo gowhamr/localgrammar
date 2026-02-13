@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProofPro — Offline Spell & Grammar Checker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
+
+[data-theme="dark"] {
+  --bg:#0d0f14; --surface:#151820; --surface2:#1c2030; --border:#252a3a;
+  --text:#e8eaf0; --muted:#6b7280; --accent:#4fd1c5; --accent2:#f6c90e;
+  --accent3:#ff6b6b; --accent4:#a78bfa;
+  --spell-bg:rgba(255,107,107,0.14); --spell-ul:#ff6b6b;
+  --gram-bg:rgba(246,201,14,0.10); --gram-ul:#f6c90e;
+  --popup-bg:#1c2030; --popup-border:#353a50;
+  --shadow:0 8px 32px rgba(0,0,0,0.55);
+  --grid:rgba(79,209,197,0.03); --on-accent:#0d0f14;
+}
+[data-theme="light"] {
+  --bg:#f0f4fb; --surface:#ffffff; --surface2:#e8edf8; --border:#cdd5e8;
+  --text:#1a1f2e; --muted:#6b7a99; --accent:#0891b2; --accent2:#b45309;
+  --accent3:#dc2626; --accent4:#7c3aed;
+  --spell-bg:rgba(220,38,38,0.08); --spell-ul:#dc2626;
+  --gram-bg:rgba(180,83,9,0.07); --gram-ul:#b45309;
+  --popup-bg:#ffffff; --popup-border:#cdd5e8;
+  --shadow:0 8px 32px rgba(0,0,0,0.11);
+  --grid:rgba(8,145,178,0.04); --on-accent:#ffffff;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Lora',Georgia,serif;min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 18px 60px;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 0 22px;border-bottom:1px solid var(--border);margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.logo{display:flex;align-items:baseline;gap:9px;}
+.logo-mark{font-family:'Syne',sans-serif;font-weight:800;font-size:23px;color:var(--accent);letter-spacing:-1px;}
+.logo-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.hdr-right{display:flex;align-items:center;gap:11px;flex-wrap:wrap;}
+
+/* Theme toggle */
+.theme-btn{display:flex;align-items:center;gap:7px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 11px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);transition:all .2s;user-select:none;}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent);}
+.trk{width:30px;height:16px;background:var(--border);border-radius:10px;position:relative;transition:background .25s;}
+.trk.on{background:var(--accent);}
+.tthumb{width:10px;height:10px;background:#fff;border-radius:50%;position:absolute;top:3px;left:3px;transition:left .2s;}
+.trk.on .tthumb{left:17px;}
+
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(79,209,197,0.08);border:1px solid rgba(79,209,197,0.22);border-radius:20px;padding:5px 11px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:1px;}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 5px var(--accent);animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+
+/* DOMAIN BAR */
+.dbar{display:flex;align-items:center;gap:7px;margin-bottom:16px;flex-wrap:wrap;}
+.dlabel{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.dbtn{font-family:'DM Mono',monospace;font-size:11px;padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .14s;}
+.dbtn:hover{border-color:var(--accent);color:var(--accent);}
+.dbtn.on{background:rgba(79,209,197,0.09);border-color:var(--accent);color:var(--accent);}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:1fr 305px;gap:18px;align-items:start;}
+@media(max-width:800px){.layout{grid-template-columns:1fr;}}
+
+/* EDITOR PANEL */
+.epanel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.etbar{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;gap:8px;}
+.etitle{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;}
+.tactions{display:flex;gap:6px;flex-wrap:wrap;}
+.abtn{font-family:'DM Mono',monospace;font-size:11px;padding:5px 11px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .14s;}
+.abtn:hover{color:var(--text);border-color:var(--text);}
+.abtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600;}
+.abtn.primary:hover{opacity:.85;}
+.abtn.fixall{background:rgba(79,209,197,0.09);border-color:var(--accent);color:var(--accent);}
+.abtn.fixall:hover{background:rgba(79,209,197,0.18);}
+
+#ta{width:100%;min-height:250px;background:transparent;border:none;outline:none;color:var(--text);font-family:'Lora',Georgia,serif;font-size:16px;line-height:1.85;padding:18px 18px 60px;resize:vertical;caret-color:var(--accent);}
+#ta::placeholder{color:var(--muted);opacity:.45;font-style:italic;}
+#ta::-webkit-scrollbar{width:4px;}
+#ta::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+#odisplay{display:none;min-height:250px;padding:18px;font-family:'Lora',Georgia,serif;font-size:16px;line-height:1.85;color:var(--text);word-break:break-word;white-space:pre-wrap;cursor:text;}
+
+.hl-spell{background:var(--spell-bg);border-bottom:2px solid var(--spell-ul);border-radius:2px;cursor:pointer;color:var(--spell-ul);transition:filter .12s;}
+.hl-spell:hover{filter:brightness(1.2);}
+.hl-gram{background:var(--gram-bg);border-bottom:2px dashed var(--gram-ul);border-radius:2px;cursor:pointer;color:var(--accent2);transition:filter .12s;}
+.hl-gram:hover{filter:brightness(1.15);}
+
+.efooter{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;gap:6px;}
+.wc{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.wc span{color:var(--accent);}
+.hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+
+/* POPUP */
+#popup{display:none;position:fixed;z-index:9999;background:var(--popup-bg);border:1px solid var(--popup-border);border-radius:10px;box-shadow:var(--shadow);min-width:195px;max-width:270px;overflow:hidden;animation:popIn .14s ease;}
+@keyframes popIn{from{opacity:0;transform:scale(.95) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.ph{padding:7px 11px 6px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pw{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pt{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;}
+.pt.sp{background:rgba(255,107,107,0.18);color:var(--spell-ul);}
+.pt.gr{background:rgba(246,201,14,0.18);color:var(--gram-ul);}
+.pclose{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:0 2px;transition:color .1s;}
+.pclose:hover{color:var(--text);}
+.pmsg{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:6px 11px 4px;}
+.psug-list{padding:4px 7px 7px;display:flex;flex-direction:column;gap:3px;}
+.psug{font-family:'DM Mono',monospace;font-size:12px;padding:6px 11px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-align:left;transition:all .11s;display:flex;align-items:center;justify-content:space-between;}
+.psug:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
+.psug .arr{opacity:.35;font-size:10px;}
+.psug:hover .arr{opacity:1;}
+.pno{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);padding:5px 11px 9px;}
+.pignore{width:100%;padding:7px 11px;border:none;border-top:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;text-align:center;transition:all .11s;}
+.pignore:hover{color:var(--text);background:var(--surface2);}
+
+/* SIDEBAR */
+.sidebar{display:flex;flex-direction:column;gap:14px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;background:var(--surface2);border-bottom:1px solid var(--border);}
+.ptitle{font-family:'Syne',sans-serif;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);}
+
+.score-wrap{display:flex;align-items:center;justify-content:center;padding:18px;flex-direction:column;gap:7px;}
+.sring{width:78px;height:78px;position:relative;}
+.sring svg{transform:rotate(-90deg);width:78px;height:78px;}
+.rbg{fill:none;stroke:var(--border);stroke-width:6;}
+.rfill{fill:none;stroke:var(--accent);stroke-width:6;stroke-linecap:round;stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset .7s ease,stroke .3s;}
+.snum{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--accent);}
+.slabel{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;text-align:center;}
+
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+.scell{background:var(--surface);padding:11px 12px;text-align:center;}
+.sn{font-family:'Syne',sans-serif;font-size:21px;font-weight:800;color:var(--accent);line-height:1;margin-bottom:2px;}
+.sl{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;}
+
+.tabs{display:flex;border-bottom:1px solid var(--border);}
+.tbtn{flex:1;font-family:'DM Mono',monospace;font-size:11px;padding:9px 5px;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:.7px;transition:all .14s;border-bottom:2px solid transparent;}
+.tbtn.on{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface);}
+
+.ilist{max-height:255px;overflow-y:auto;padding:7px;}
+.ilist::-webkit-scrollbar{width:3px;}
+.ilist::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.iitem{padding:8px 10px;border-radius:8px;margin-bottom:5px;border:1px solid transparent;cursor:pointer;transition:all .11s;}
+.iitem:last-child{margin-bottom:0;}
+.iitem.sp{background:rgba(255,107,107,0.07);border-color:rgba(255,107,107,0.17);}
+.iitem.gr{background:rgba(246,201,14,0.06);border-color:rgba(246,201,14,0.15);}
+.iitem:hover{transform:translateX(3px);}
+[data-theme="light"] .iitem.sp{background:rgba(220,38,38,0.06);border-color:rgba(220,38,38,0.18);}
+[data-theme="light"] .iitem.gr{background:rgba(180,83,9,0.05);border-color:rgba(180,83,9,0.16);}
+.iw{font-family:'DM Mono',monospace;font-size:13px;font-weight:500;margin-bottom:2px;}
+.iitem.sp .iw{color:var(--spell-ul);}
+.iitem.gr .iw{color:var(--gram-ul);}
+.im{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:5px;}
+.chips{display:flex;flex-wrap:wrap;gap:4px;}
+.chip{font-family:'DM Mono',monospace;font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid rgba(79,209,197,0.28);background:rgba(79,209,197,0.06);color:var(--accent);cursor:pointer;transition:all .11s;}
+.chip:hover{background:rgba(79,209,197,0.19);border-color:var(--accent);}
+[data-theme="light"] .chip{border-color:rgba(8,145,178,0.28);background:rgba(8,145,178,0.05);}
+[data-theme="light"] .chip:hover{background:rgba(8,145,178,0.14);}
+.empty{padding:24px 12px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;}
+.empty .ei{font-size:20px;margin-bottom:7px;opacity:.45;}
+
+.legend{display:flex;gap:12px;padding:9px 13px;border-top:1px solid var(--border);}
+.leg{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+.ldot{width:13px;height:3px;border-radius:2px;}
+
+.toast{position:fixed;bottom:26px;right:26px;background:var(--surface2);border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;padding:8px 15px;border-radius:8px;opacity:0;transform:translateY(10px);transition:all .26s;pointer-events:none;z-index:8888;}
+.toast.show{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <span class="logo-mark">ProofPro</span>
+      <span class="logo-sub">Offline Editor</span>
+    </div>
+    <div class="hdr-right">
+      <div class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+        <span id="ticon">🌙</span>
+        <div class="trk on" id="trk"><div class="tthumb"></div></div>
+        <span id="tlbl">Dark</span>
+      </div>
+      <div class="badge">100% Offline</div>
+    </div>
+  </header>
+
+  <!-- DOMAIN BAR -->
+  <div class="dbar">
+    <span class="dlabel">Dictionary:</span>
+    <button class="dbtn on" data-d="all"     onclick="setDomain('all',this)">All ✓</button>
+    <button class="dbtn"    data-d="general" onclick="setDomain('general',this)">General</button>
+    <button class="dbtn"    data-d="email"   onclick="setDomain('email',this)">Email</button>
+    <button class="dbtn"    data-d="banking" onclick="setDomain('banking',this)">Banking</button>
+    <button class="dbtn"    data-d="it"      onclick="setDomain('it',this)">IT / Tech</button>
+    <button class="dbtn"    data-d="support" onclick="setDomain('support',this)">IT Support</button>
+    <button class="dbtn"    data-d="indian_english" onclick="setDomain('indian_english',this)">🇮🇳 Indian English</button>
+    <button class="dbtn"    data-d="geo"            onclick="setDomain('geo',this)">🌍 Countries & Currencies</button>
+  </div>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout">
+    <div>
+      <div class="epanel">
+        <div class="etbar">
+          <span class="etitle">Your Text</span>
+          <div class="tactions">
+            <button class="abtn" onclick="clearAll()">Clear</button>
+            <button class="abtn" onclick="copyFixed()">Copy</button>
+            <button class="abtn fixall" id="fixall-btn" style="display:none" onclick="fixAllSpelling()">Fix All Spelling</button>
+            <button class="abtn primary" onclick="checkText()">Check ↵</button>
+          </div>
+        </div>
+        <textarea id="ta"
+          placeholder="Start typing — spelling and grammar checks automatically as you type.
+Double-click any highlighted word for suggestions. Ctrl+Enter to force check."
+          oninput="onInput()"
+          onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){checkText();}"
+        ></textarea>
+        <div id="odisplay"></div>
+        <div class="efooter">
+          <div class="wc">Words: <span id="wc">0</span> &nbsp;|&nbsp; Chars: <span id="cc">0</span></div>
+          <div class="hint">Auto-checks as you type &nbsp;·&nbsp; Double-click error for popup &nbsp;·&nbsp; Ctrl+Enter</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="panel">
+        <div class="phead"><span class="ptitle">Accuracy Score</span></div>
+        <div class="score-wrap">
+          <div class="sring">
+            <svg viewBox="0 0 80 80">
+              <circle class="rbg" cx="40" cy="40" r="35"/>
+              <circle class="rfill" id="rfill" cx="40" cy="40" r="35"/>
+            </svg>
+            <div class="snum" id="snum">—</div>
+          </div>
+          <div class="slabel" id="slabel">Check to score</div>
+        </div>
+        <div class="sgrid">
+          <div class="scell"><div class="sn" id="ss" style="color:var(--spell-ul)">0</div><div class="sl">Spelling</div></div>
+          <div class="scell"><div class="sn" id="sg" style="color:var(--gram-ul)">0</div><div class="sl">Grammar</div></div>
+          <div class="scell"><div class="sn" id="sw">0</div><div class="sl">Words</div></div>
+          <div class="scell"><div class="sn" id="sst" style="color:var(--accent4)">0</div><div class="sl">Sentences</div></div>
+        </div>
+        <div class="legend">
+          <div class="leg"><div class="ldot" style="background:var(--spell-ul)"></div> Spelling</div>
+          <div class="leg"><div class="ldot" style="border-top:2px dashed var(--gram-ul);height:0;background:none;width:13px"></div> Grammar</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="tabs">
+          <button class="tbtn on" id="tsp" onclick="switchTab('sp')">🔴 Spelling</button>
+          <button class="tbtn"    id="tgr" onclick="switchTab('gr')">🟡 Grammar</button>
+        </div>
+        <div id="splist" class="ilist"><div class="empty"><div class="ei">✏️</div>Check text to see issues</div></div>
+        <div id="grlist" class="ilist" style="display:none"><div class="empty"><div class="ei">📝</div>Check text to see issues</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUGGESTION POPUP -->
+<div id="popup">
+  <div class="ph">
+    <span class="pw" id="pop-w"></span>
+    <span class="pt" id="pop-t"></span>
+    <button class="pclose" onclick="closePopup()">✕</button>
+  </div>
+  <div class="pmsg" id="pop-m"></div>
+  <div class="psug-list" id="pop-sugs"></div>
+  <button class="pignore" onclick="ignoreCurrentWord()">Ignore this word</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DICTIONARIES ──────────────────────────────────────────────
+var DICT = {
+  general: [
+    // Core function words
+    "the","be","to","of","and","a","in","that","have","it","for","not","on","with","he","as",
+    "you","do","at","this","but","his","by","from","they","we","say","her","she","or","an","will","my",
+    "one","all","would","there","their","what","so","up","out","if","about","who","get","which","go","me",
+    "when","make","can","like","time","no","just","him","know","take","people","into","year","your","good",
+    "some","could","them","see","other","than","then","now","look","only","come","its","over","think",
+    "also","back","after","use","two","how","our","work","first","well","way","even","new","want",
+    "because","any","these","give","day","most","us","between","need","large","often","high","place",
+    "hold","turn","help","start","never","next","hard","open","seem","together","better","best","run",
+    "free","send","right","enough","still","learn","cover","food","keep","small","under","read","own",
+    "while","may","please","both","those","too","feel","more","through","before","line","without",
+    "however","always","information","number","different","again","off","should","done","therefore",
+    "based","since","important","available","following","including","used","being","each","having",
+    "during","within","many","using","across","three","four","five","six","seven","eight","nine","ten",
+    "hundred","thousand","million","review","provide","required","process","point","able","let","around",
+    "today","yesterday","tomorrow","week","month","last","every","once","twice","very","much","such",
+    "same","where","here","yes","yet","anything","everything","nothing","someone","something","anyone",
+    "everyone","nowhere","somewhere","anywhere","thank","thanks","hello","dear","regards","sincerely",
+    "faithfully","cordially","hi","bye","okay","ok","sure","great","bad","old","big","long","short",
+    "low","left","early","late","soon","already","quite","rather","actually","really","probably",
+    "usually","generally","especially","recently","clearly","quickly","slowly","finally","simply",
+    "exactly","completely","currently","i","am","is","are","was","were","been","has","had","did",
+    "does","can","will","shall","might","must","per","via","re","cc","bcc","etc","vs","ie","eg",
+    "mr","mrs","ms","dr","prof","jr","sr","january","february","march","april","june","july","august",
+    "september","october","november","december","monday","tuesday","wednesday","thursday","friday",
+    "saturday","sunday","morning","afternoon","evening","night","address","city","state","country",
+    "zip","code","name","date","phone","website","page","form","file","report","document","letter",
+    "memo","note","message","office","company","business","client","customer","service","team","staff",
+    "member","manager","director","president","ceo","cto","cfo","head","lead","senior","junior",
+    "write","sent","received","attached","found","provided","changed","completed","submitted",
+    "approved","rejected","pending","closed","create","created","update","delete","deleted","submit",
+    "approve","contact","contacted","request","requested","confirm","confirmed","schedule","scheduled",
+    "complete","resolve","resolved","reported","add","added","remove","removed","check","checked",
+    "test","tested","fix","fixed","month","would","my","our","your","him","them","us","me","who",
+    "whose","which","what","whatever","whoever","either","neither","both","few","many","much","more",
+    "most","other","another","each","every","any","all","some","no","none","one","two","do","did",
+    "does","done","go","went","gone","come","came","take","took","taken","see","saw","seen","get","got",
+    "give","gave","given","know","knew","known","think","thought","find","found","tell","told","ask",
+    "seem","call","keep","kept","let","begin","began","begun","show","hear","heard","play","move",
+    "live","believe","bring","brought","stand","stood","lose","lost","pay","paid","meet","met",
+    "include","set","learn","change","follow","stop","speak","spoke","spend","spent","grow","grew",
+    "offer","remember","love","consider","appear","buy","bought","wait","serve","build","built",
+    "fall","fell","cut","reach","raise","pass","sell","sold","require","decide","pull","break",
+    "broke","put","kind","might","update","updated","updating","contact","service","provide",
+    "important","available","information","different","however","through","without","before","after",
+    "because","number","following","including","required","process","review","provide","possible",
+    "problem","problems","issue","issues","error","errors","access","system","systems","network",
+    "user","users","note","also","next","last","then","now","well",
+    // Extended common English
+    "ability","absence","absolute","academic","accept","acceptable","acceptance","accepted","accident",
+    "according","account","accurate","achieve","achievement","acknowledge","action","active","activity",
+    "actual","actually","added","additional","administration","advance","advantage","advice","affect",
+    "afraid","against","age","agency","agree","agreement","ahead","allow","almost","along","already",
+    "although","amount","analysis","another","answer","apply","appreciate","appropriate","approval",
+    "arrange","arrival","arrive","article","aspect","assess","assessment","asset","assist","assistance",
+    "associate","attached","attempt","attention","attitude","authority","aware","background","basic",
+    "behalf","believe","benefit","body","bring","broad","brought","budget","build","care","carry",
+    "certain","challenge","chance","choice","circumstance","clear","collect","collection","comment",
+    "commitment","communicate","communication","concern","condition","confident","confirm","connect",
+    "connection","consent","consider","continue","control","copy","correct","cover","current",
+    "customer","deadline","deal","decision","deliver","delivery","demand","department","describe",
+    "detail","develop","development","difference","difficult","direct","discuss","discussion",
+    "draft","due","duty","early","effect","effort","enable","encourage","ensure","entire","equal",
+    "establish","estimate","evaluate","example","expect","expectation","experience","explain",
+    "factor","failure","familiar","finally","focus","follow","formal","forward","future","general",
+    "generate","given","global","goal","growth","guideline","handle","happen","idea","identify",
+    "impact","implement","improve","increase","indicate","industry","inform","initial","input",
+    "instance","integrate","interest","involve","keep","knowledge","later","letter","likely","limit",
+    "local","look","maintain","manage","mention","method","might","mind","model","multiple","natural",
+    "necessary","objective","obtain","office","opinion","option","order","overall","particular",
+    "perform","performance","phase","plan","point","policy","position","practice","prepare","present",
+    "previous","priority","produce","project","purpose","quality","question","quickly","raise",
+    "reason","receive","reduce","refer","regard","relate","remain","represent","resource","response",
+    "result","role","section","select","separate","situation","solution","specific","standard",
+    "statement","status","step","strategy","structure","subject","success","sufficient","suggest",
+    "summary","support","target","task","technical","technology","throughout","topic","total","track",
+    "transfer","treat","type","understand","understanding","value","variety","view","visit","welcome",
+    "whose","wide","work","written","above","below","inside","outside","toward","along","beside",
+    "behind","beside","although","unless","therefore","whereas","meanwhile","furthermore","moreover",
+    "nevertheless","otherwise","subsequently","accordingly","consequently","specifically","generally",
+    "effectively","efficiently","significantly","approximately","immediately","eventually","frequently",
+    "occasionally","additionally","particularly","essentially","relatively","potentially","primarily",
+    "consistently","continuously","successfully","appropriately","independently","professionally",
+    "approximately","internationally","unfortunately","recommendation","implementation","administration",
+    "collaboration","communication","consideration","documentation","organization","presentation",
+    "responsibility","requirement","understanding","environment","development","management","performance",
+    "relationship","experience","achievement","application","opportunity","information","department",
+    "situation","investment","distribution","maintenance","transaction","notification","registration",
+    "identification","specification","authorization","configuration","investigation","qualification",
+    // Everyday vocabulary
+    "above","action","actual","afraid","after","again","age","ago","agree","air","all","allow","alone",
+    "although","answer","area","arm","around","away","baby","back","ball","basic","beautiful","become",
+    "bed","behind","below","between","black","blue","book","born","box","break","brief","bring","broad",
+    "brother","brown","buy","carry","centre","child","children","choose","church","city","class","close",
+    "club","cold","colour","common","community","cost","deep","door","draw","drink","drive","drop",
+    "easy","edge","else","empty","end","enough","enter","establish","even","ever","exam","exist","eye",
+    "face","fair","family","far","fast","feeling","feet","field","fight","figure","final","finger",
+    "fire","floor","fly","follow","force","friend","front","full","further","girl","glass","green",
+    "group","grow","guess","hair","half","hand","happy","hear","heart","heat","heavy","high","history",
+    "hold","hole","home","hope","horse","house","human","hurt","idea","imagine","inside","instead",
+    "interest","join","jump","keep","kill","king","land","language","large","later","lay","lead",
+    "light","listen","little","local","long","love","machine","main","matter","mean","meet","miss",
+    "modern","money","morning","mother","mountain","move","music","nature","near","need","night","none",
+    "north","nothing","object","offer","often","open","order","outside","own","paper","parent","party",
+    "past","peace","people","perhaps","plan","poor","power","pretty","probably","push","real","red",
+    "remain","return","rich","road","rock","room","round","rule","safe","school","seat","seem","serve",
+    "short","side","sign","simple","since","skill","sleep","slow","smile","sort","south","space","speak",
+    "speed","stage","star","stay","steel","story","strong","study","sure","swim","table","talk","teach",
+    "thick","thing","thought","throw","touch","town","trade","tree","trip","true","truth","turn","type",
+    "until","usual","view","voice","wait","walk","wall","watch","water","west","white","wide","wind",
+    "wise","wish","woman","wonder","word","world","worth","wrong","yard","young","ability","actually",
+    "already","among","area","attention","beautiful","between","bring","consider","different","during",
+    "enough","especially","everything","important","instead","interest","leave","nothing","number",
+    "often","probably","really","right","sometimes","something","still","together","toward","under",
+    "whether","whole","world",
+    // Professional / formal English
+    "abovementioned","accordingly","acknowledge","action-item","addendum","adjourn","aforesaid",
+    "agenda","aforementioned","annex","appended","applicable","arbitration","attachment","briefing",
+    "bylaws","clause","collateral","commence","compliant","concur","contemporaneous","covenant",
+    "criteria","criterion","duly","enclosure","endeavour","enumerate","escalation","execute",
+    "executor","exemplary","expedite","facilitate","feasibility","fiduciary","forthwith","governance",
+    "hereby","herein","hereof","hereunder","herewith","indemnify","indemnity","inherent","interim",
+    "jurisdiction","liable","liability","liquidate","mandate","mitigate","negligence","notwithstanding",
+    "obligation","ordinance","oversight","paramount","prescribed","provision","pursuant","ratify",
+    "rectify","remediate","resolution","revert","sanction","signatory","statute","stipulate",
+    "subsequent","supersede","terminate","termination","thereof","therein","therewith","thereby",
+    "unduly","unilateral","validate","verification","waive","waiver","whereas","whereby","witness"
+  ],
+  indian_english: [
+    // Indian English vocabulary and common spellings
+    "aadhar","aadhaar","adhaar","aadhaarbased","nric","nic","pan","pannumber","pancard","gstin","gst",
+    "tds","tcs","itr","iti","iti","iim","iit","upsc","ias","ips","ifs","psc","ssc","neet","jee",
+    "lakh","lakhs","crore","crores","paise","rupee","rupees","inr","paisa","neft","rtgs","imps",
+    "upi","bhim","paytm","phonepe","gpay","mobikwik","freecharge","wallet","ewallet","netbanking",
+    "icici","hdfc","sbi","axis","kotak","pnb","bob","boi","canara","ubi","syndicate","vijaya",
+    "allahabad","dena","central","idbi","rbi","sebi","nabard","sidbi","exim","nse","bse","sensex",
+    "nifty","mutual","sip","elss","ppf","epf","nps","lic","mediclaim","floater","demat","nsdl","cdsl",
+    "aadhaarlinked","enach","nach","ecs","ifsc","micr","swift","dd","demand-draft","payorder",
+    "cheque","passbook","nominee","kyc","ekyc","vkyc","ckyc","cibil","credit-score","creditcard",
+    "debitcard","rupay","visa","mastercard","emv","otp","mpin","tpin","ipin","atm","cdm","kiosk",
+    // Indian honorifics and titles
+    "shri","shrimat","smt","kumari","sri","dr","prof","ji","sahib","sahab","babu","bhai","didi",
+    "anna","amma","thiru","thirumathi","adv","advo","advocate","cm","mp","mla","ips","ias",
+    // Indian office / government terms
+    "govt","government","gazette","gazetted","non-gazetted","notified","panchayat","municipality",
+    "corporation","council","ward","taluka","tehsil","district","division","zone","circle","range",
+    "collectorate","secretariat","mantralaya","vidhansabha","loksabha","rajyasabha","parliament",
+    "ministry","department","directorate","commission","committee","board","authority","tribunal",
+    "court","high-court","supreme-court","sessions","magistrate","collector","commissioner",
+    "tehsildar","naib","patwari","inspector","constable","havildar","superintendent","deputy",
+    // Common Indian English words used in business/IT
+    "prepone","revert","updation","erratum","corrigendum","intimation","despatch","despatch",
+    "matriculate","matriculation","domicile","nativity","nativity-certificate","migration",
+    "encumbrance","encumbrance-certificate","mutation","khata","khasra","khatoni","patta",
+    "fard","jamabandi","nakal","registry","registered","sub-registrar","stamp-duty","franking",
+    "notarize","notarized","apostille","attested","attested-copy","self-attested","xerox",
+    "photocopy","zerox","zerox-copy","affidavit","undertaking","declaration","certificate",
+    "provisional","migration-certificate","bonafide","bona-fide","character-certificate",
+    "noc","no-objection","noc-certificate","experience-letter","relieving-letter","offer-letter",
+    "joining-letter","appointment-letter","increment-letter","promotion-letter","salary-slip",
+    "payslip","form-16","form-26as","acknowledgement","acknowledgment","duly-filled","duly-signed",
+    // Indian English in IT/tech context
+    "outstation","onsite","offsite","deputation","secondment","inward","outward","despatch",
+    "dispatch","indent","indenting","challan","invoice","proforma","performa","quotation","tender",
+    "l1","l2","l3","vendor","empanelled","empanelment","shortlisted","shortlisting","blacklisted",
+    "whitelist","greylist","escalate","docket","jobcard","workorder","purchaseorder","po",
+    "sow","mou","nda","sla","msa","vendor-code","cost-centre","profit-centre","bu","sbu","bpo","kpo",
+    "lpo","mfg","r&d","s&m","hr","hrd","hris","erp","crm","sap","oracle","tally","zoho","freshdesk",
+    "zendesk","servicenow","remedy","jira","confluence","sharepoint","teams","skype","zoom","meet",
+    // Indian English daily usage
+    "prepaid","postpaid","recharge","topup","balance","talktime","validity","datapack","broadband",
+    "airtel","jio","vi","vodafone","idea","bsnl","mtnl","trai","dot","meity","nasscom","stpi",
+    "sez","export","import","fob","cif","igst","cgst","sgst","cess","surcharge","penalty","late-fee",
+    "exemption","deduction","rebate","refund","tds-certificate","form-15g","form-15h","pan-linked",
+    "aadhar-linked","seeding","linkage","linking","portability","porting","mnp",
+    // Common Indian English spelling variations
+    "analyse","analysed","analysing","organise","organised","organising","recognise","recognised",
+    "realise","realised","utilise","utilised","fulfil","fulfils","fulfilling","fulfillment",
+    "programme","programmes","programmed","honour","honoured","colour","coloured","favour","favoured",
+    "behaviour","labour","neighbour","rumour","humour","flavour","harbour","endeavour","enrol",
+    "enrolment","travelling","cancellation","cancelled","modelling","jewellery","woollen","cheque",
+    "instalment","instalment","acknowledgement","ageing","artefact","judgement","practise",
+    // Indian states, cities (commonly typed in business emails)
+    "delhi","mumbai","bangalore","bengaluru","hyderabad","chennai","kolkata","pune","ahmedabad",
+    "surat","jaipur","lucknow","kanpur","nagpur","indore","thane","bhopal","visakhapatnam",
+    "patna","vadodara","ghaziabad","ludhiana","agra","nashik","faridabad","meerut","rajkot",
+    "kalyan","vasai","varanasi","srinagar","aurangabad","dhanbad","amritsar","navi-mumbai",
+    "allahabad","ranchi","howrah","coimbatore","jabalpur","gwalior","vijayawada","jodhpur",
+    "madurai","raipur","kota","guwahati","chandigarh","solapur","hubballi","dharwad","tiruchirappalli",
+    "bareilly","moradabad","mysuru","tiruppur","gurgaon","gurugram","noida","noidaextension",
+    "maharashtra","gujarat","rajasthan","karnataka","tamilnadu","andhra","telangana","kerala",
+    "punjab","haryana","uttarpradesh","bihar","jharkhand","odisha","westbengal","assam","himachal",
+    "uttarakhand","chhattisgarh","goa","manipur","meghalaya","mizoram","nagaland","tripura",
+    "arunachal","sikkim","jammu","kashmir","ladakh","pondicherry","puducherry","chandigarh",
+    // Common terms in Indian professional communication
+    "reverting","revert","kindly","do-the-needful","needful","whatsoever","thrice","fortnight",
+    "fortnightly","quarterly","biannual","biennial","triennial","decadal","centennial","jubilee",
+    "conveyance","conveyance-allowance","hra","da","ta","lta","medical-allowance","pf","esic",
+    "gratuity","superannuation","vrs","ex-gratia","notice-period","probation","confirmation",
+    "regularization","absorption","tenure","deputation","lien","superscribe","superscription"
+  ],
+    email: ["email","inbox","outbox","draft","drafts","spam","junk","trash","archive","forward","reply",
+    "attachment","attach","attached","attachments","subject","body","header","footer","signature",
+    "recipient","recipients","sender","compose","thread","newsletter","mailing","unsubscribe",
+    "subscribe","bounce","autoresponder","filter","folder","label","flag","mark","unread","urgent",
+    "priority","followup","reminder","notification","alert","digest","broadcast","campaign","template",
+    "plaintext","greeting","salutation","closing","asap","fyi","nda","rsvp","tbd","tbc","eta","eom",
+    "eod","cob","eob","calendar","invite","meeting","appointment","agenda","minutes","proposal","quote",
+    "invoice","receipt","confirmation","booking","reservation","welcome","onboarding","transactional",
+    "promotional","automated","delivery","deliverability","domain","subdomain","spf","dkim","dmarc",
+    "authentication","outlook","gmail","yahoo","hotmail","thunderbird","webmail","imap","smtp","pop3",
+    "mailbox","server","protocol","port","ssl","tls","encryption","mx","record","no-reply","autoreply",
+    "distribution","sincerely","regards","dear","hello","thanks","appreciate","kindly","attachment"],
+  banking: ["account","accounts","balance","balances","transaction","transactions","transfer","transfers",
+    "deposit","deposits","withdrawal","withdrawals","debit","credit","loan","loans","mortgage",
+    "interest","rate","rates","apr","apy","fee","fees","charge","charges","penalty","penalties",
+    "statement","statements","ledger","journal","reconciliation","reconcile","audit","auditor",
+    "branch","branches","atm","teller","cashier","vault","checking","savings","investment","portfolio",
+    "fund","funds","mutual","etf","bond","bonds","stock","stocks","equity","dividend","dividends",
+    "market","trading","broker","brokerage","exchange","nasdaq","nyse","forex","currency","currencies",
+    "dollar","euro","pound","yen","yuan","rupee","bitcoin","crypto","cryptocurrency","blockchain",
+    "wallet","token","defi","payment","payments","payee","payer","payroll","remittance","wire","ach",
+    "eft","rtgs","swift","iban","bic","routing","ifsc","micr","cheque","check","draft","chip","pin",
+    "cvv","nfc","contactless","tap","swipe","overdraft","limit","minimum","due","overdue","outstanding",
+    "principal","amortization","collateral","lien","guarantee","guarantor","cosigner","kyc","aml",
+    "cdd","sanctions","compliance","regulatory","watchlist","fraud","fraudulent","chargeback","dispute",
+    "claim","investigation","suspicious","authorization","authorize","authenticate","otp","biometric",
+    "solvency","liquidity","capital","reserve","requirement","ratio","tier","ifrs","gaap","insurance",
+    "insured","fdic","underwriting","premium","emi","installment","tenure","repayment","prepayment",
+    "foreclosure","npa","recovery","collection","debt","asset","liability","revenue","profit","loss",
+    "earnings","quarterly","annual","fiscal","ytd","q1","q2","q3","q4","fy","netbanking","online",
+    "bank","banking","branch","internet-banking","mobile-banking","counter","kiosk","two-factor"],
+  it: ["software","hardware","firmware","application","applications","app","apps","program","programs",
+    "system","systems","operating","os","windows","linux","macos","android","ios","unix","server",
+    "servers","cloud","azure","aws","gcp","hosting","deployment","database","databases","sql","nosql",
+    "mysql","postgresql","mongodb","oracle","redis","sqlite","network","networks","networking","router",
+    "routers","switch","switches","firewall","gateway","ip","ipv4","ipv6","dns","dhcp","tcp","udp",
+    "http","https","ssl","tls","vpn","ssh","ftp","bandwidth","latency","throughput","packet","protocol",
+    "protocols","socket","api","rest","soap","graphql","webhook","endpoint","endpoints","microservice",
+    "microservices","container","containers","docker","kubernetes","k8s","pod","pods","cluster","virtual",
+    "virtualization","vm","hypervisor","vmware","cpu","gpu","ram","rom","ssd","hdd","nvme","storage",
+    "memory","processor","motherboard","code","coding","programming","script","scripting","python",
+    "java","javascript","typescript","csharp","ruby","php","golang","rust","swift","kotlin","scala",
+    "html","css","react","angular","vue","node","nodejs","django","flask","spring","laravel","git",
+    "github","gitlab","bitbucket","version","control","repository","branch","commit","push","pull",
+    "merge","rebase","clone","fork","ci","cd","devops","agile","scrum","sprint","backlog","kanban",
+    "jira","confluence","slack","teams","zoom","trello","algorithm","data","structure","array","object",
+    "function","class","method","variable","string","integer","boolean","null","json","xml","yaml",
+    "csv","binary","encryption","decryption","hash","checksum","signature","certificate","oauth","jwt",
+    "saml","ldap","sso","mfa","malware","virus","ransomware","phishing","vulnerability","patch","hotfix",
+    "security","backup","restore","disaster","recovery","rto","rpo","bcp","sla","slo","uptime",
+    "downtime","monitoring","logging","metrics","alerting","observability","debugging","cache","caching",
+    "cdn","nginx","apache","iis","tomcat","machine-learning","ml","ai","deep-learning","nlp","neural",
+    "model","training","inference","dataset","accuracy","benchmark","iot","sensor","edge","computing",
+    "wifi","bluetooth","usb","ethernet","fiber","wireless","gigabit","install","installation",
+    "configure","configuration","setup","deploy","launch","upgrade","downgrade","rollback","restart",
+    "reboot","shutdown","enable","disable","permission","permissions","role","admin","administrator",
+    "sudo","root","environment","production","staging","testing","qa","uat","sandbox","release",
+    "tech","technology","technologies","technical","technician","computer","computers","device",
+    "devices","interface","backend","frontend","fullstack","active-directory","hyper-v","kvm"],
+  support: ["ticket","tickets","incident","incidents","problem","problems","request","requests","change",
+    "changes","helpdesk","servicedesk","itsm","itil","sla","escalate","escalation","priority",
+    "critical","high","medium","low","severity","impact","urgency","resolution","resolved","reopen",
+    "reopened","on-hold","cancelled","assigned","unassigned","queue","troubleshoot","troubleshooting",
+    "diagnose","diagnosis","root-cause","rca","workaround","end-user","stakeholder","requester",
+    "assignee","resolver","password","reset","unlock","locked","login","logout","credentials","denied",
+    "remote","desktop","rdp","citrix","anydesk","teamviewer","vnc","remote-access","session","printer",
+    "printing","scanner","scanning","monitor","display","screen","keyboard","mouse","laptop",
+    "workstation","mobile","tablet","smartphone","headset","webcam","connectivity","internet","offline",
+    "online","connected","disconnected","ping","tracert","access-point","ssid","browser","chrome",
+    "firefox","edge","safari","extension","plugin","addon","cookies","microsoft","office","word",
+    "excel","powerpoint","sharepoint","onedrive","google","workspace","docs","sheets","slides","meet",
+    "antivirus","scan","quarantine","infected","threat","blocked","policy","license","activation",
+    "subscription","renewal","expired","uninstall","compatibility","driver","error","warning","crash",
+    "freeze","hang","slow","performance","startup","safe-mode","clone","onboarding","offboarding",
+    "provision","deprovision","migrate","migration","documentation","knowledge-base","kb","article",
+    "how-to","guide","manual","faq","tutorial","monitoring","alert","alarm","dashboard","metric","kpi",
+    "availability","maintenance","deployment","approval","approver","workflow","automation","runbook",
+    "sop","procedure","checklist","feedback","survey","satisfaction","csat","nps","rating","comment",
+    "technician","support","technical","helpdesk","call","open","close","status","pending",
+    "in-progress","new","flag","note","update","hotfix","patch"],
+
+  // ── COUNTRIES + CURRENCIES ────────────────────────────────
+  geo: [
+    // ── ALL WORLD COUNTRIES (195 UN members + common territories) ──
+    "afghanistan","albania","algeria","andorra","angola","antigua","barbuda","argentina","armenia",
+    "australia","austria","azerbaijan","bahamas","bahrain","bangladesh","barbados","belarus","belgium",
+    "belize","benin","bhutan","bolivia","bosnia","herzegovina","botswana","brazil","brunei","bulgaria",
+    "burkina","burundi","cambodia","cameroon","canada","cabo","verde","central","african","chad","chile",
+    "china","colombia","comoros","congo","costa","rica","croatia","cuba","cyprus","czechia","denmark",
+    "djibouti","dominica","dominican","ecuador","egypt","salvador","equatorial","guinea","eritrea",
+    "estonia","eswatini","ethiopia","fiji","finland","france","gabon","gambia","georgia","germany",
+    "ghana","greece","grenada","guatemala","guinea-bissau","guyana","haiti","honduras","hungary",
+    "iceland","india","indonesia","iran","iraq","ireland","israel","italy","jamaica","japan","jordan",
+    "kazakhstan","kenya","kiribati","kuwait","kyrgyzstan","laos","latvia","lebanon","lesotho","liberia",
+    "libya","liechtenstein","lithuania","luxembourg","madagascar","malawi","malaysia","maldives","mali",
+    "malta","marshall","mauritania","mauritius","mexico","micronesia","moldova","monaco","mongolia",
+    "montenegro","morocco","mozambique","myanmar","namibia","nauru","nepal","netherlands","zealand",
+    "nicaragua","niger","nigeria","norway","oman","pakistan","palau","panama","papua","paraguay","peru",
+    "philippines","poland","portugal","qatar","romania","russia","rwanda","nevis","lucia","grenadines",
+    "samoa","marino","tomé","príncipe","saudi","senegal","serbia","seychelles","leone","singapore",
+    "slovakia","slovenia","solomon","somalia","africa","south","spain","lanka","sudan","suriname",
+    "sweden","switzerland","syria","taiwan","tajikistan","tanzania","thailand","timor-leste","togo",
+    "tonga","trinidad","tobago","tunisia","turkey","turkmenistan","tuvalu","uganda","ukraine",
+    "emirates","united","kingdom","states","uruguay","uzbekistan","vanuatu","venezuela","vietnam",
+    "yemen","zambia","zimbabwe",
+    // Common country adjectives / nationalities
+    "american","british","chinese","french","german","indian","japanese","russian","australian",
+    "canadian","italian","spanish","portuguese","dutch","swedish","norwegian","danish","finnish",
+    "polish","greek","turkish","iranian","iraqi","egyptian","saudi","korean","vietnamese","thai",
+    "indonesian","malaysian","singaporean","emirati","qatari","kuwaiti","bahraini","omani","yemeni",
+    "pakistani","bangladeshi","nepali","srilankan","afghan","myanmar","cambodian","laotian","filipino",
+    "taiwanese","mongolian","kazakh","uzbek","azerbaijani","georgian","armenian","ukrainian","belarusian",
+    "moldovan","romanian","bulgarian","serbian","croatian","slovenian","macedonian","albanian","bosnian",
+    "czech","slovak","hungarian","austrian","swiss","belgian","luxembourgish","icelandic","irish",
+    "scottish","welsh","english","nigerian","kenyan","ghanaian","ethiopian","tanzanian","ugandan",
+    "senegalese","ivorian","camerounian","zimbabwean","zambian","mozambican","malawian","rwandan",
+    "congolese","angolan","sudanese","libyan","tunisian","algerian","moroccan","lebanese","syrian",
+    "jordanian","israeli","palestinian","cypriot","maltese","mexican","guatemalan","honduran",
+    "salvadoran","nicaraguan","costarican","panamanian","colombian","venezuelan","peruvian","chilean",
+    "argentinian","bolivian","ecuadorian","paraguayan","uruguayan","brazilian","cuban","jamaican",
+    "haitian","trinidadian","barbadian",
+    // ── CURRENCY NAMES (all ISO 4217 + common names) ──
+    // Major currencies
+    "dollar","dollars","usd","cent","cents",
+    "euro","euros","eur",
+    "pound","pounds","sterling","gbp","pence","penny",
+    "yen","jpy",
+    "yuan","renminbi","cny","rmb","jiao","fen",
+    "rupee","rupees","inr","paisa","paise",
+    "ruble","rouble","roubles","rubles","rub","kopek","kopeks",
+    "franc","francs","chf","centime","centimes",
+    "won","krw","jeon",
+    "kronor","krona","krone","sek","nok","dkk","isk","ore",
+    "ringgit","myr","sen",
+    "baht","thb","satang",
+    "dong","vnd","xu",
+    "peso","pesos","centavo","centavos",
+    "real","reais","brl",
+    "lira","lire","try","kurus",
+    "rupiah","idr",
+    "dirham","dirhams","aed","fils",
+    "riyal","riyals","sar","qar","yer","omr","bhd","kwd",
+    "dinar","dinars","jod","iqd","kyd","lyd","tnd","dzd","bhd","kwd","sdg",
+    "shekel","shekels","ils","agorot","agora",
+    "forint","huf","filler",
+    "zloty","pln","grosz","groszy",
+    "koruna","czk","haler",
+    "leu","ron","ban",
+    "hryvnia","hryvnias","uah","kopiyka",
+    "tenge","kzt","tiyin",
+    "som","kgs","tyiyn",
+    "manat","azn","qepik",
+    "lari","gel","tetri",
+    "dram","amd","luma",
+    "taka","bdt","poisha",
+    "kyat","mmk","pya",
+    "kip","lak","att",
+    "riel","khr","sen",
+    "peso","php","sentimo",
+    "rufiyaa","mvr","laari",
+    "ngultrum","btn","chetrum",
+    "afghan","afghani","afn","pul",
+    "rial","irr","qirsh",
+    "dram","amd",
+    "lev","bgn","stotinka",
+    "kuna","hrk","lipa",
+    "lei","mdi",
+    "denar","mkd","deni",
+    "lek","all","qindarka",
+    "convertible","bam",
+    "dinar","rsd","para",
+    "euro","eur",
+    "yen","jpy",
+    "kroon","eek","senti",
+    "lats","lvl","santims",
+    "litas","ltl","centas",
+    "marka","bam",
+    "quetzal","gtq","centavo",
+    "lempira","hnl","centavo",
+    "cordoba","nio","centavo",
+    "colon","crc","centimo",
+    "balboa","pab","centesimo",
+    "guarani","pyg","centimo",
+    "sol","pen","centimo",
+    "boliviano","bob","centavo",
+    "sucre","usd","centavo",
+    "peso","cop","centavo",
+    "bolivar","vef","centimo",
+    "surinamese","srd","cent",
+    "guyanese","gyd","cent",
+    "dollar","ttd","cent",
+    "jamaican","jmd","cent",
+    "haitian","htg","centime",
+    "cuban","cup","centavo",
+    "naira","ngn","kobo",
+    "cedi","ghs","pesewa",
+    "birr","etb","santim",
+    "shilling","kes","ugx","tzs","sos","cent",
+    "rand","zar","cent",
+    "kwacha","mwk","zmw","ngwe",
+    "meticais","mzn","centavo",
+    "kwanza","aoa","centimo",
+    "franc","xof","xaf","gnf","bif","rwf","kmf","scr","stn","cvescudo",
+    "pula","bwp","thebe",
+    "lilangeni","szl","cent",
+    "loti","lsl","sente",
+    "nakfa","ern","cent",
+    "pound","sdg","egp","lbp","ssp","piastre",
+    "dinar","mad","sahrawi",
+    "dirham","dzd","santeem",
+    "ouguiya","mru","khoum",
+    "leone","sll","cent",
+    "dalasi","gmd","butut",
+    "liberian","lrd","cent",
+    "franc","djf","centime",
+    "somali","sos","sente",
+    "ariary","mga","iraimbilanja",
+    "rupee","mur","cent",
+    "dobra","stn","centimo",
+    "escudo","cve","centavo",
+    "riyal","yer","fils",
+    "afghani","afn","pul",
+    "tugrik","mnt","mongo",
+    "cryptocurrencies and modern payment terms",
+    "bitcoin","btc","satoshi","ethereum","eth","wei","gwei","ripple","xrp","litecoin","ltc",
+    "cardano","ada","polkadot","dot","solana","sol","dogecoin","doge","tether","usdt","usdc",
+    "binance","bnb","stablecoin","altcoin","defi","nft","token","wallet","blockchain","crypto",
+    "cbdc","central-bank-digital-currency","digital-currency","e-currency","virtual-currency",
+    // Currency-related vocabulary
+    "exchange","rate","conversion","convert","converted","converting","foreign","domestic","local",
+    "international","cross-border","remittance","transfer","wire","swift","iban","bic","sepa",
+    "appreciation","depreciation","revaluation","devaluation","inflation","deflation","monetary",
+    "fiscal","treasury","reserve","central-bank","interbank","forex","fx","spot","forward","swap",
+    "hedge","hedging","arbitrage","speculation","parity","purchasing-power","basket","index",
+    "denomination","denominate","redenominate","currency-code","iso-code","iso4217",
+    // Country-related vocabulary
+    "nation","nations","national","international","global","worldwide","multinational","bilateral",
+    "multilateral","treaty","agreement","embassy","consulate","visa","passport","citizenship",
+    "resident","residency","immigrant","immigration","emigrant","emigration","diaspora","expatriate",
+    "expat","abroad","overseas","foreign","domestic","indigenous","sovereign","sovereignty","border",
+    "territory","territorial","jurisdiction","continent","continental","intercontinental",
+    "africa","europe","asia","americas","oceania","antarctica","arctic","middle-east","southeast-asia",
+    "south-asia","east-asia","central-asia","north-africa","sub-saharan","latin-america","caribbean",
+    "scandinavia","balkans","caucasus","levant","maghreb","sahel","horn-of-africa"
+  ]
+};
+
+// ── GRAMMAR RULES ────────────────────────────────────────────
+var GRULES = [
+  {re:/\b(\w+)\s+\1\b/gi,             msg:function(m){return 'Double word: "'+m[1]+'" repeated';}, fix:function(m){return[m[1]];}},
+  {re:/\b(dont)\b/gi,                 msg:function(){return "Missing apostrophe";},                fix:function(){return["don't"];}},
+  {re:/\b(cant)\b/gi,                 msg:function(){return "Missing apostrophe";},                fix:function(){return["can't"];}},
+  {re:/\b(wont)\b/gi,                 msg:function(){return "Missing apostrophe";},                fix:function(){return["won't"];}},
+  {re:/\b(isnt)\b/gi,                 msg:function(){return "Missing apostrophe";},                fix:function(){return["isn't"];}},
+  {re:/\b(arent)\b/gi,                msg:function(){return "Missing apostrophe";},                fix:function(){return["aren't"];}},
+  {re:/\b(wasnt)\b/gi,                msg:function(){return "Missing apostrophe";},                fix:function(){return["wasn't"];}},
+  {re:/\b(werent)\b/gi,               msg:function(){return "Missing apostrophe";},                fix:function(){return["weren't"];}},
+  {re:/\b(havent)\b/gi,               msg:function(){return "Missing apostrophe";},                fix:function(){return["haven't"];}},
+  {re:/\b(hasnt)\b/gi,                msg:function(){return "Missing apostrophe";},                fix:function(){return["hasn't"];}},
+  {re:/\b(hadnt)\b/gi,                msg:function(){return "Missing apostrophe";},                fix:function(){return["hadn't"];}},
+  {re:/\b(wouldnt)\b/gi,              msg:function(){return "Missing apostrophe";},                fix:function(){return["wouldn't"];}},
+  {re:/\b(couldnt)\b/gi,              msg:function(){return "Missing apostrophe";},                fix:function(){return["couldn't"];}},
+  {re:/\b(shouldnt)\b/gi,             msg:function(){return "Missing apostrophe";},                fix:function(){return["shouldn't"];}},
+  {re:/\b(didnt)\b/gi,                msg:function(){return "Missing apostrophe";},                fix:function(){return["didn't"];}},
+  {re:/\b(doesnt)\b/gi,               msg:function(){return "Missing apostrophe";},                fix:function(){return["doesn't"];}},
+  {re:/\byour welcome\b/gi,           msg:function(){return 'Should be "you\'re welcome"';},       fix:function(){return["you're welcome"];}},
+  {re:/\bthier\b/gi,                  msg:function(){return 'Did you mean "their"?';},             fix:function(){return["their","there","they're"];}},
+  {re:/\bteh\b/gi,                    msg:function(){return 'Did you mean "the"?';},               fix:function(){return["the"];}},
+  {re:/\brecieve\b/gi,                msg:function(){return 'Misspelled — "receive"';},            fix:function(){return["receive"];}},
+  {re:/\bseperate\b/gi,               msg:function(){return 'Misspelled — "separate"';},           fix:function(){return["separate"];}},
+  {re:/\boccured\b/gi,                msg:function(){return 'Misspelled — "occurred"';},           fix:function(){return["occurred"];}},
+  {re:/\bdefinately\b/gi,             msg:function(){return 'Misspelled — "definitely"';},         fix:function(){return["definitely"];}},
+  {re:/\baccomodate\b/gi,             msg:function(){return 'Misspelled — "accommodate"';},        fix:function(){return["accommodate"];}},
+  {re:/\buntill\b/gi,                 msg:function(){return 'Misspelled — "until"';},              fix:function(){return["until"];}},
+  {re:/\bwierd\b/gi,                  msg:function(){return 'Misspelled — "weird"';},              fix:function(){return["weird"];}},
+  {re:/\benviroment\b/gi,             msg:function(){return 'Misspelled — "environment"';},        fix:function(){return["environment"];}},
+  {re:/\bmanagment\b/gi,              msg:function(){return 'Misspelled — "management"';},         fix:function(){return["management"];}},
+  {re:/\bdevelopement\b/gi,           msg:function(){return 'Misspelled — "development"';},        fix:function(){return["development"];}},
+  {re:/\bindependant\b/gi,            msg:function(){return 'Misspelled — "independent"';},        fix:function(){return["independent"];}},
+  {re:/\bmaintainence\b/gi,           msg:function(){return 'Misspelled — "maintenance"';},        fix:function(){return["maintenance"];}},
+  {re:/\bpriviledge\b/gi,             msg:function(){return 'Misspelled — "privilege"';},          fix:function(){return["privilege"];}},
+  {re:/\bcalender\b/gi,               msg:function(){return 'Did you mean "calendar"?';},          fix:function(){return["calendar"];}},
+  {re:/\brec+omend\b/gi,              msg:function(){return 'Misspelled — "recommend"';},          fix:function(){return["recommend"];}},
+  {re:/\bpreform\b/gi,                msg:function(){return 'Did you mean "perform"?';},           fix:function(){return["perform"];}},
+  {re:/\ba ([aeiouAEIOU]\w+)/g,       msg:function(m){return 'Use "an" before "'+m[1]+'"';},       fix:function(m){return["an "+m[1]];}},
+  {re:/\ban ([bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]\w+)/g, msg:function(m){return 'Use "a" before "'+m[1]+'"';}, fix:function(m){return["a "+m[1]];}},
+  {re:/(?<![a-zA-Z])i(?![a-zA-Z'])/g, msg:function(){return '"i" should be capital "I"';},         fix:function(){return["I"];}},
+  {re:/\binfomation\b/gi,             msg:function(){return 'Misspelled — "information"';},        fix:function(){return["information"];}},
+  {re:/\brecive\b/gi,                 msg:function(){return 'Misspelled — "receive"';},            fix:function(){return["receive"];}},
+  {re:/\baddres\b/gi,                 msg:function(){return 'Misspelled — "address"';},            fix:function(){return["address"];}},
+  {re:/\bpasswrod\b/gi,               msg:function(){return 'Misspelled — "password"';},           fix:function(){return["password"];}},
+];
+
+// ── STATE ────────────────────────────────────────────────────
+var activeDomains = {all:true};
+var spellErrors = [], grammarErrors = [];
+var curTab = "sp", ignoredWords = {}, popupTarget = null;
+var isChecked = false;
+
+// ── BUILD DICTIONARY ─────────────────────────────────────────
+function buildDict() {
+  var d = {};
+  DICT.general.forEach(function(w){d[w]=1;});
+  var keys = activeDomains.all ? ["email","banking","it","support","indian_english","geo"] : Object.keys(activeDomains).filter(function(k){return k!=="general";});
+  keys.forEach(function(k){ if(DICT[k]) DICT[k].forEach(function(w){d[w]=1;}); });
+  return d;
+}
+
+// ── SPELL CHECK ──────────────────────────────────────────────
+function checkSpelling(text, dict) {
+  var errs=[], seen={}, re=/\b[a-zA-Z']+\b/g, m;
+  while((m=re.exec(text))!==null){
+    var raw=m[0], word=raw.toLowerCase().replace(/^'+|'+$/g,"");
+    if(word.length<2) continue;
+    if(/^[A-Z]{1,5}$/.test(raw)) continue;
+    if(/\d/.test(word)) continue;
+    if(seen[word]) continue;
+    if(ignoredWords[word]) continue;
+    if(!dict[word]){
+      seen[word]=1;
+      errs.push({word:raw, suggestions:getSuggestions(word,dict)});
+    }
+  }
+  return errs;
+}
+
+function lev(a,b){
+  var m=a.length,n=b.length,i,j;
+  var dp=[];
+  for(i=0;i<=m;i++){dp[i]=[];for(j=0;j<=n;j++){dp[i][j]=i===0?j:j===0?i:0;}}
+  for(i=1;i<=m;i++) for(j=1;j<=n;j++) dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function getSuggestions(word, dict) {
+  var cands=[];
+  Object.keys(dict).forEach(function(w){
+    if(Math.abs(w.length-word.length)<=3){var d=lev(word,w);if(d<=2) cands.push({w:w,d:d});}
+  });
+  cands.sort(function(a,b){return a.d-b.d;});
+  return cands.slice(0,5).map(function(c){return c.w;});
+}
+
+// ── GRAMMAR CHECK ────────────────────────────────────────────
+function checkGrammar(text) {
+  var errs=[];
+  GRULES.forEach(function(rule){
+    var flags=rule.re.flags.replace(/g/,"")+"g";
+    var rx=new RegExp(rule.re.source, flags);
+    var m;
+    while((m=rx.exec(text))!==null){
+      errs.push({match:m[0], index:m.index, msg:rule.msg(m), suggestions:rule.fix(m).filter(Boolean)});
+    }
+  });
+  return errs;
+}
+
+// ── MAIN CHECK ───────────────────────────────────────────────
+function checkText(){
+  var ta=document.getElementById("ta");
+  var text=ta.value;
+  if(!text.trim()){
+    var ta2=document.getElementById("ta");
+    ta2.focus();
+    ta2.style.outline="2px solid var(--accent3)";
+    setTimeout(function(){ta2.style.outline="";},700);
+    return;
+  }
+  var dict=buildDict();
+  spellErrors=checkSpelling(text,dict);
+  grammarErrors=checkGrammar(text);
+  isChecked=true;
+  renderOutput(text);
+  renderSpellList();
+  renderGrammarList();
+  updateScore(text);
+  ta.style.display="none";
+  document.getElementById("odisplay").style.display="block";
+  document.getElementById("fixall-btn").style.display=spellErrors.length?"inline-block":"none";
+
+}
+
+// ── RENDER OUTPUT ────────────────────────────────────────────
+function renderOutput(text){
+  var display=document.getElementById("odisplay");
+  // Build spell marks
+  var marks=[];
+  spellErrors.forEach(function(e){
+    var re=new RegExp("\\b"+escRe(e.word)+"\\b");
+    var idx=text.search(re);
+    if(idx!==-1) marks.push({start:idx,end:idx+e.word.length,word:e.word,sug:e.suggestions});
+  });
+  marks.sort(function(a,b){return a.start-b.start;});
+  var clean=[],last=-1;
+  marks.forEach(function(m){if(m.start>last){clean.push(m);last=m.end;}});
+
+  var html="",pos=0;
+  clean.forEach(function(m){
+    html+=escH(text.slice(pos,m.start));
+    var si=spellErrors.length>0?spellErrors.findIndex(function(e){return e.word===m.word;}):-1;
+    html+='<span class="hl-spell" data-si="'+si+'" ondblclick="openSpellPop(event,this)" title="Spelling — double-click">'+escH(m.word)+'</span>';
+    pos=m.end;
+  });
+  html+=escH(text.slice(pos));
+
+  // Grammar
+  grammarErrors.forEach(function(e,gi){
+    var safe=escRe(e.match);
+    html=html.replace(
+      new RegExp("(?<![>=])"+safe+"(?![^<]*>)"),
+      '<span class="hl-gram" data-gi="'+gi+'" ondblclick="openGramPop(event,this)" title="'+escH(e.msg)+' — double-click">'+e.match+'</span>'
+    );
+  });
+  display.innerHTML=html;
+}
+
+// ── POPUP ────────────────────────────────────────────────────
+function openSpellPop(evt, el){
+  evt.stopPropagation();
+  var si=parseInt(el.getAttribute("data-si"),10);
+  if(isNaN(si)||si<0||si>=spellErrors.length) return;
+  var e=spellErrors[si];
+  popupTarget={type:"spell",word:e.word,original:e.word};
+  document.getElementById("pop-w").textContent=e.word;
+  var t=document.getElementById("pop-t"); t.textContent="Spelling"; t.className="pt sp";
+  document.getElementById("pop-m").textContent="Possible misspelling";
+  buildPopSugs(e.suggestions, e.word);
+  posPopup(evt);
+}
+
+function openGramPop(evt, el){
+  evt.stopPropagation();
+  var gi=parseInt(el.getAttribute("data-gi"),10);
+  if(isNaN(gi)||gi<0||gi>=grammarErrors.length) return;
+  var e=grammarErrors[gi];
+  popupTarget={type:"gram",word:e.match,original:e.match};
+  document.getElementById("pop-w").textContent=e.match;
+  var t=document.getElementById("pop-t"); t.textContent="Grammar"; t.className="pt gr";
+  document.getElementById("pop-m").textContent=e.msg;
+  buildPopSugs(e.suggestions, e.match);
+  posPopup(evt);
+}
+
+function buildPopSugs(sugs, original){
+  var c=document.getElementById("pop-sugs");
+  if(!sugs||!sugs.length){c.innerHTML='<div class="pno">No suggestions found</div>';return;}
+  var html="";
+  sugs.forEach(function(s){
+    // Use data attributes to avoid quote escaping issues in onclick
+    html+='<button class="psug" data-orig="'+escH(original)+'" data-rep="'+escH(s)+'">'+escH(s)+'<span class="arr">→</span></button>';
+  });
+  c.innerHTML=html;
+  c.querySelectorAll(".psug").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var orig=btn.getAttribute("data-orig");
+      var rep=btn.getAttribute("data-rep");
+      closePopup();
+      applyFix(orig,rep);
+    });
+  });
+}
+
+function posPopup(evt){
+  var p=document.getElementById("popup");
+  p.style.display="block";
+  var vw=window.innerWidth,vh=window.innerHeight;
+  var x=evt.clientX+12,y=evt.clientY+12,pw=270,ph=230;
+  if(x+pw>vw-8) x=evt.clientX-pw-8;
+  if(y+ph>vh-8) y=evt.clientY-ph-8;
+  p.style.left=Math.max(6,x)+"px";
+  p.style.top=Math.max(6,y)+"px";
+}
+
+function closePopup(){document.getElementById("popup").style.display="none";}
+
+function ignoreCurrentWord(){
+  if(popupTarget) ignoredWords[popupTarget.word.toLowerCase()]=1;
+  closePopup();
+  checkText();
+  showToast("Word ignored");
+}
+
+document.addEventListener("click",function(e){
+  var p=document.getElementById("popup");
+  if(p.style.display==="block"&&!p.contains(e.target)) closePopup();
+});
+
+// ── APPLY FIX ────────────────────────────────────────────────
+function applyFix(original, replacement){
+  var ta=document.getElementById("ta");
+  var re=new RegExp("\\b"+escRe(original)+"\\b","i");
+  ta.value=ta.value.replace(re,replacement);
+  showToast('"'+original+'" → "'+replacement+'"');
+  setTimeout(function(){checkText();},80);
+}
+
+function fixAllSpelling(){
+  var ta=document.getElementById("ta");
+  var text=ta.value,count=0;
+  spellErrors.forEach(function(e){
+    if(e.suggestions.length){
+      text=text.replace(new RegExp("\\b"+escRe(e.word)+"\\b","gi"),e.suggestions[0]);
+      count++;
+    }
+  });
+  ta.value=text;
+  showToast("Auto-fixed "+count+" spelling error"+(count===1?"":"s"));
+  setTimeout(function(){checkText();},80);
+}
+
+// ── RENDER LISTS ─────────────────────────────────────────────
+function renderSpellList(){
+  var list=document.getElementById("splist");
+  document.getElementById("ss").textContent=spellErrors.length;
+  document.getElementById("tsp").textContent="🔴 Spelling ("+spellErrors.length+")";
+  if(!spellErrors.length){list.innerHTML='<div class="empty"><div class="ei">✅</div>No spelling errors!</div>';return;}
+  var html="";
+  spellErrors.forEach(function(e,si){
+    var chips="";
+    e.suggestions.forEach(function(s){
+      chips+='<button class="chip" data-si="'+si+'" data-s="'+escH(s)+'">'+escH(s)+'</button>';
+    });
+    if(!e.suggestions.length) chips='<span style="font-size:10px;color:var(--muted);font-family:DM Mono,monospace">No suggestions</span>';
+    html+='<div class="iitem sp" data-focus="'+escH(e.word)+'" onclick="focusWord(this.getAttribute(\'data-focus\'))">'
+      +'<div class="iw">'+escH(e.word)+'</div>'
+      +'<div class="im">Possible misspelling — double-click word for popup</div>'
+      +'<div class="chips">'+chips+'</div>'
+      +'</div>';
+  });
+  list.innerHTML=html;
+  list.querySelectorAll(".chip").forEach(function(chip){
+    chip.addEventListener("click",function(ev){
+      ev.stopPropagation();
+      var si=parseInt(chip.getAttribute("data-si"),10);
+      var s=chip.getAttribute("data-s");
+      applyFix(spellErrors[si].word, s);
+    });
+  });
+}
+
+function renderGrammarList(){
+  var list=document.getElementById("grlist");
+  document.getElementById("sg").textContent=grammarErrors.length;
+  document.getElementById("tgr").textContent="🟡 Grammar ("+grammarErrors.length+")";
+  if(!grammarErrors.length){list.innerHTML='<div class="empty"><div class="ei">✅</div>No grammar errors!</div>';return;}
+  var html="";
+  grammarErrors.forEach(function(e,gi){
+    var chips="";
+    e.suggestions.forEach(function(s){
+      chips+='<button class="chip" data-gi="'+gi+'" data-s="'+escH(s)+'">'+escH(s)+'</button>';
+    });
+    html+='<div class="iitem gr">'
+      +'<div class="iw">'+escH(e.match.trim())+'</div>'
+      +'<div class="im">'+escH(e.msg)+'</div>'
+      +'<div class="chips">'+chips+'</div>'
+      +'</div>';
+  });
+  list.innerHTML=html;
+  list.querySelectorAll(".chip").forEach(function(chip){
+    chip.addEventListener("click",function(){
+      var gi=parseInt(chip.getAttribute("data-gi"),10);
+      var s=chip.getAttribute("data-s");
+      applyFix(grammarErrors[gi].match.trim(), s);
+    });
+  });
+}
+
+// ── SCORE ────────────────────────────────────────────────────
+function updateScore(text){
+  var words=text.trim().split(/\s+/).length;
+  var sents=(text.match(/[.!?]+/g)||[]).length||1;
+  var total=spellErrors.length+grammarErrors.length;
+  var score=Math.round(Math.max(0,100-(total/Math.max(words,1))*280));
+  document.getElementById("sw").textContent=words;
+  document.getElementById("sst").textContent=sents;
+  document.getElementById("snum").textContent=score;
+  var labels=["Needs Work","Fair","Good","Great","Excellent!"];
+  document.getElementById("slabel").textContent=labels[Math.min(4,Math.floor(score/20))];
+  var ring=document.getElementById("rfill");
+  ring.style.strokeDashoffset="220";
+  ring.style.stroke=score>=80?"var(--accent)":score>=55?"var(--accent2)":"var(--accent3)";
+  setTimeout(function(){ring.style.strokeDashoffset=String(220-(score/100)*220);},80);
+}
+
+// ── FOCUS WORD ───────────────────────────────────────────────
+function focusWord(word){
+  document.querySelectorAll(".hl-spell,.hl-gram").forEach(function(s){
+    if(s.textContent.toLowerCase()===word.toLowerCase()){
+      s.style.outline="2px solid var(--accent)";
+      s.scrollIntoView({behavior:"smooth",block:"center"});
+      setTimeout(function(){s.style.outline="";},2000);
+    }
+  });
+}
+
+// ── COPY / CLEAR ─────────────────────────────────────────────
+function copyFixed(){
+  var v=document.getElementById("ta").value;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(v).then(function(){showToast("Copied to clipboard!");}).catch(function(){showToast("Press Ctrl+A then Ctrl+C");});
+  } else {
+    var ta=document.getElementById("ta");
+    ta.select(); document.execCommand("copy"); showToast("Copied!");
+  }
+}
+
+function clearAll(){
+  var ta=document.getElementById("ta");
+  ta.value=""; ta.style.display="block";
+  var od=document.getElementById("odisplay"); od.style.display="none"; od.innerHTML="";
+  spellErrors=[]; grammarErrors=[]; isChecked=false; ignoredWords={};
+  closePopup();
+  document.getElementById("fixall-btn").style.display="none";
+  document.getElementById("splist").innerHTML='<div class="empty"><div class="ei">✏️</div>Check text to see issues</div>';
+  document.getElementById("grlist").innerHTML='<div class="empty"><div class="ei">📝</div>Check text to see issues</div>';
+  document.getElementById("snum").textContent="—";
+  document.getElementById("slabel").textContent="Check to score";
+  document.getElementById("rfill").style.strokeDashoffset="220";
+  ["ss","sg","sw","sst"].forEach(function(id){document.getElementById(id).textContent="0";});
+  document.getElementById("tsp").textContent="🔴 Spelling";
+  document.getElementById("tgr").textContent="🟡 Grammar";
+  updateWordCount();
+}
+
+// ── THEME TOGGLE ─────────────────────────────────────────────
+function toggleTheme(){
+  var html=document.documentElement;
+  var isDark=html.getAttribute("data-theme")==="dark";
+  html.setAttribute("data-theme",isDark?"light":"dark");
+  document.getElementById("trk").classList.toggle("on",!isDark);
+  document.getElementById("ticon").textContent=isDark?"☀️":"🌙";
+  document.getElementById("tlbl").textContent=isDark?"Light":"Dark";
+  if(isChecked) checkText();
+}
+
+// ── DOMAIN TOGGLE ────────────────────────────────────────────
+function setDomain(domain, btn){
+  var allBtn=document.querySelector('[data-d="all"]');
+  var genBtn=document.querySelector('[data-d="general"]');
+  if(domain==="all"){
+    activeDomains={all:true};
+    document.querySelectorAll(".dbtn").forEach(function(b){b.classList.remove("on");});
+    btn.classList.add("on");
+  } else {
+    allBtn.classList.remove("on");
+    delete activeDomains.all;
+    btn.classList.toggle("on");
+    if(btn.classList.contains("on")) activeDomains[domain]=true;
+    else delete activeDomains[domain];
+    if(Object.keys(activeDomains).length===0){activeDomains.general=true;genBtn.classList.add("on");}
+  }
+  if(document.getElementById("ta").value.trim()&&isChecked){checkText();}
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+function switchTab(tab){
+  curTab=tab;
+  document.getElementById("tsp").classList.toggle("on",tab==="sp");
+  document.getElementById("tgr").classList.toggle("on",tab==="gr");
+  document.getElementById("splist").style.display=tab==="sp"?"block":"none";
+  document.getElementById("grlist").style.display=tab==="gr"?"block":"none";
+}
+
+// ── WORD COUNT ───────────────────────────────────────────────
+function onInput(){
+  updateWordCount();
+  if(isChecked){
+    document.getElementById("ta").style.display="block";
+    document.getElementById("odisplay").style.display="none";
+    isChecked=false;
+    document.getElementById("fixall-btn").style.display="none";
+  }
+  scheduleAutoCheck();
+}
+function updateWordCount(){
+  var t=document.getElementById("ta").value;
+  document.getElementById("wc").textContent=t.trim()?t.trim().split(/\s+/).length:0;
+  document.getElementById("cc").textContent=t.length;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function escH(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function escRe(s){
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+}
+function showToast(msg){
+  var t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  setTimeout(function(){t.classList.remove("show");},2800);
+}
+
+// ── AUTO-CHECK ON TYPING (debounced 900ms) ───────────────────
+var autoCheckTimer=null;
+function scheduleAutoCheck(){
+  clearTimeout(autoCheckTimer);
+  var text=document.getElementById("ta").value;
+  if(text.trim().length<10) return; // need at least a few words
+  autoCheckTimer=setTimeout(function(){
+    if(document.getElementById("ta").value.trim().length>=10) checkText();
+  },900);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+window.addEventListener("load",function(){
+  document.getElementById("ta").value="";
+  updateWordCount();
+});
+
+document.addEventListener("DOMContentLoaded",function(){
+  document.getElementById("odisplay").addEventListener("click",function(e){
+    if(e.target===document.getElementById("odisplay")){
+      document.getElementById("ta").style.display="block";
+      document.getElementById("odisplay").style.display="none";
+      document.getElementById("ta").focus();
+    }
+  });
+});
+</script>
+</body>
+</html>
